@@ -8,6 +8,12 @@ github: eyeinsky/fw-todomvc
 
 dependencies:
 - base
+- text
+- rapid
+- warp
+- warp-tls
+- web
+
 executable:
   main: Main.hs
   source-dirs: src

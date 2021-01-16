@@ -1,0 +1,8 @@
+packages:
+  fw-todomvc.cabal
+  fw/web-url
+  fw/web-browser
+  fw/web
+  fw/identifiers
+  fw/render
+  fw/multiline
