@@ -35,6 +35,7 @@ data Footer = Footer
 
 instance GetTemplate Header () where
   type instance Html' Header () = Html
+                          -- | Add item
   type instance In Header () = (Expr String -> Expr ())
   getTemplate addItem = do
     h1' <- cssId $ do
@@ -63,9 +64,12 @@ instance GetTemplate Header () where
 -- | This section should be hidden by default and shown when there are todos
 instance GetTemplate Main () where
   type instance Html' Main () = (Html -> Html)
+                        -- | Items
   type instance In Main () = Expr ()
   type instance Out Main () =
+    -- | Render item
     ( Expr Item -> Expr () -> Expr () -> Expr (Context Item)
+    -- | Update count
     , Expr (Int -> ())
     )
   getTemplate items = mdo
@@ -82,7 +86,6 @@ instance GetTemplate Main () where
         bare $ item^.T.update $ ctx
 
     clearCompleted <- js $ newf $ do
-      log "clear completed"
       forOf (items !/ "values") $ \(ctx :: Expr (Context Item)) -> do
         ifonly (T.source ctx^.completed) $ do
           nodes' <- const $ T.nodes ctx
@@ -105,7 +108,6 @@ instance GetTemplate Main () where
     renderItem <- js $ fn $ \item' destroy (toggle :: Expr ()) -> do
       ctx :: Expr (Context Item) <- const $ item^.T.create $ item'
       let fragment = ctx !- 2
-          nodes' = nodes ctx
 
       withNodes ctx $ \node -> do
         _ <- onEvent Click (querySelector (Class "destroy") $ Cast node)
@@ -162,13 +164,13 @@ instance GetTemplate Item () where
         view <- const $ querySelector' self $ Cast node
         edit' <- const $ querySelector' (Class "edit") $ Cast node
 
-        onEvent DblClick (querySelector' descr_ $ Cast node) $ do
+        void $ onEvent DblClick (querySelector' descr_ $ Cast node) $ do
           arr <- const $ querySelectorAll self $ Cast document
           iterArray (Cast arr) $ \ix -> do
             bare $ arr !- ix !. "classList" !// "remove" $ "editing"
           bare $ view !. "classList" !// "toggle" $ "editing"
           bare $ edit' !/ "focus"
-        onEvent KeyDown edit' $ \event -> do
+        void $ onEvent KeyDown edit' $ \event -> do
           let val = event !. "target" !. "value"
           ifonly (event !. "which"  .== 13) $ do
             item^.description .= val
