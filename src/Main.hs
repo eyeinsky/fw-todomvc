@@ -79,6 +79,20 @@ instance GetTemplate Main () where
     main' <- cssId $ pure ()
     ul' <- cssId $ pure ()
 
+    cssRule (".main[data-show=completed]" :: TagName) $ do
+      descendant (".todo-list li:not(.completed)" :: TagName) $ display "none"
+      descendant (".filters a[href='#/completed']" :: TagName) $ do
+        borderColor $ rgba 175 47 47 0.2
+      descendant (".filters li a.selected" :: TagName) $ do
+        borderColor $ "transparent" <> important
+
+    cssRule (".main[data-show=active]" :: TagName) $ do
+      descendant (".todo-list li.completed" :: TagName) $ display "none"
+      descendant (".filters a[href='#/active']" :: TagName) $ do
+        borderColor $ rgba 175 47 47 0.2
+      descendant (".filters li a.selected" :: TagName) $ do
+        borderColor $ "transparent" <> important
+
     toggleAllCompleted <- js $ newf $ \ev -> do
       compl <- const $ ev !. "target" !. "checked"
       forOf (items !/ "values") $ \(ctx :: Expr (Context Item)) -> do
@@ -92,6 +106,16 @@ instance GetTemplate Main () where
           iterArray nodes' $ \ix -> bare $ nodes' !- ix !/ "remove"
           bare $ items !// "delete" $ ctx
       bare $ call1 updateCount $ items !. "size"
+
+    js $ onEvent HashChange window $ do
+      switch (window !. "location" !. "hash") $ do
+        case_ "#/active" $ do
+          findBy main' !. "dataset" !. "show" .= "active"
+        case_ "#/completed" $ do
+          findBy main' !. "dataset" !. "show" .= "completed"
+        default_ $ do
+          findBy main' !. "dataset" !. "show" .= Undefined
+
     let
       ssr :: Main -> Html
       ssr (Main items) =
