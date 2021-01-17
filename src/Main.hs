@@ -63,22 +63,38 @@ instance GetTemplate Header () where
 -- | This section should be hidden by default and shown when there are todos
 instance GetTemplate Main () where
   type instance Html' Main () = (Html -> Html)
+  type instance In Main () = Expr ()
   type instance Out Main () =
     ( Expr Item -> Expr () -> Expr () -> Expr (Context Item)
     , Expr (Int -> ())
     )
-  getTemplate _ = do
-    footer <- getTemplate @Footer @() ()
+  getTemplate items = mdo
+    footer <- getTemplate @Footer @() clearCompleted
     item <- getTemplate @Item @() ()
 
     main' <- cssId $ pure ()
     ul' <- cssId $ pure ()
+
+    toggleAllCompleted <- js $ newf $ \ev -> do
+      compl <- const $ ev !. "target" !. "checked"
+      forOf (items !/ "values") $ \(ctx :: Expr (Context Item)) -> do
+        T.source ctx^.completed .= compl
+        bare $ item^.T.update $ ctx
+
+    clearCompleted <- js $ newf $ do
+      log "clear completed"
+      forOf (items !/ "values") $ \(ctx :: Expr (Context Item)) -> do
+        ifonly (T.source ctx^.completed) $ do
+          nodes' <- const $ T.nodes ctx
+          iterArray nodes' $ \ix -> bare $ nodes' !- ix !/ "remove"
+          bare $ items !// "delete" $ ctx
+      bare $ call1 updateCount $ items !. "size"
     let
       ssr :: Main -> Html
       ssr (Main items) =
         section ! Class "main" ! main' ! style (display "none") $ do
           let toggleAll = Id "toggle-all"
-          input ! toggleAll ! Class "toggle-all" ! type_ "checkbox"
+          input ! toggleAll ! Class "toggle-all" ! type_ "checkbox" ! On Change toggleAllCompleted
           label ! for toggleAll $ "Mark all as complete"
           ul ! ul' ! Class "todo-list" $ case items of
             _ : _ -> forM_ items (item^.T.ssr)
@@ -171,6 +187,7 @@ instance GetTemplate Item () where
         bare $ ternary (item^.completed)
           (self' !. "classList" !// "add" $ "completed")
           (self' !. "classList" !// "remove" $ "completed")
+        querySelector' completed_ node' !. "checked" .= item^.completed
         -- | Description, Edit
         querySelector' descr_ node' !. "innerHTML" .= item^.description
         querySelector' edit_ node' !. "value" .= item^.edit
@@ -184,8 +201,9 @@ instance GetTemplate Item () where
 -- | This footer should be hidden by default and shown when there are todos
 instance GetTemplate Footer () where
   type instance Html' Footer () = Html
+  type instance In Footer () = Expr ()
   type instance Out Footer () = Expr (Int -> ())
-  getTemplate _ = do
+  getTemplate clearCompleted = do
     cls <- css $ color $ hex 0x777777
     count' <- cssId $ pure ()
     countText <- cssId $ pure ()
@@ -206,7 +224,7 @@ instance GetTemplate Footer () where
           li $ a                    ! HTML.href "#/active" $ "Active"
           li $ a                    ! HTML.href "#/completed" $ "Completed"
           -- Hidden if no completed items are left ↓
-        button ! Class "clear-completed" $ "Clear completed"
+        button ! Class "clear-completed" ! On Click clearCompleted $ "Clear completed"
 
     return $ emptyTemplate
       & T.ssr .~ ssr
@@ -256,7 +274,7 @@ site = T $ do
 
   return $ \_ -> mdo
     header <- getTemplate @Header @() addItem
-    main <- getTemplate @Main @() ()
+    main <- getTemplate @Main @() $ Cast items
     let (renderItem, updateCount) = main^.T.out
 
     items <- js $ const $ call0 (New $ ex "Map")
@@ -276,7 +294,7 @@ site = T $ do
       toggle <- newf $ do item^.completed .= X.not (item^.completed)
 
       ctx .= renderItem item destroy toggle
-      bare $ call (items !. "set") [Cast ctx, item]
+      bare $ call (items !. "set") [ctx, ctx]
       bare $ call1 updateCount $ items !. "size"
       retrn (Undefined :: Expr ())
 
