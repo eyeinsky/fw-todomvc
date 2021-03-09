@@ -4,6 +4,7 @@ import qualified Data.Text as TS
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Rapid
 import System.Environment
+import System.IO
 
 import X.Prelude as P
 import qualified HTML
@@ -333,6 +334,7 @@ site nodeModules = T $ do
 
 main :: IO ()
 main = do
+  hSetBuffering stdout LineBuffering
   maybeTls <- tlsSettingsEnvIO "DEV_WEBSERVER_CERT" "DEV_WEBSERVER_KEY"
   (nodeModules : _) <- getArgs
   siteMain maybeTls def def prodUrl settings $ site nodeModules
