@@ -3,6 +3,7 @@ module Main where
 import qualified Data.Text as TS
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Rapid
+import System.Environment
 
 import X.Prelude as P
 import qualified HTML
@@ -264,12 +265,12 @@ makeFields ''RunConf
 instance Default RunConf where
   def = RunConf mempty
 
-site :: T RunConf
-site = T $ do
+site :: FilePath -> T RunConf
+site nodeModules = T $ do
 
-  commonCss <- serveFile "./node_modules/todomvc-common/base.css"
-  appCss <- serveFile "./node_modules/todomvc-app-css/index.css"
-  baseJs <- serveFile "./node_modules/todomvc-common/base.js"
+  commonCss <- serveFile $ nodeModules <> "/todomvc-common/base.css"
+  appCss <- serveFile $ nodeModules <> "/todomvc-app-css/index.css"
+  baseJs <- serveFile $ nodeModules <> "/todomvc-common/base.js"
   appJs <- serveFile "./js/app.js"
 
   let
@@ -333,11 +334,12 @@ site = T $ do
 main :: IO ()
 main = do
   maybeTls <- tlsSettingsEnvIO "DEV_WEBSERVER_CERT" "DEV_WEBSERVER_KEY"
-  case maybeTls of
-    Just tls -> siteMain (Just tls) def def urlForOutsideWorld (Warp.setPort 8443 Warp.defaultSettings) site
-    _ -> putStrLn "No TLS environment variables"
-  where
-    urlForOutsideWorld = [url| https://todomvc.yay:8443 |]
+  (nodeModules : _) <- getArgs
+  siteMain maybeTls def def prodUrl settings $ site nodeModules
+  where settings = Warp.setPort 8081 Warp.defaultSettings
+
+prodUrl :: URL
+prodUrl = [url| https://captainhaskell.ee/todomvc |]
 
 -- * Hot reload
 
