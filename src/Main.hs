@@ -292,10 +292,10 @@ site nodeModules = T $ do
           p "Double-click to edit a todo"
           p $ do
             text "Created by "
-            a "eyeinsky" ! href [url|http://todomvc.com|]
+            a "eyeinsky" ! href [url|https://github.com/eyeinsky/|]
           p $ do
             text "Part of "
-            a "TodoMVC" ! href [url|http://todomvc.com|]
+            a "TodoMVC" ! href [url|https://todomvc.com|]
         -- Scripts here. Don't remove ↓
         includeJs baseJs
         includeJs appJs
